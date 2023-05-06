@@ -5,11 +5,9 @@ const SCREENHEIGHT = 800;
 let mousePressed = false;
 let currentNode = undefined;
 let parentCandidate = undefined;
-
 let mouse = { x: 0, y: 0 };
 
 class Node {
-
     constructor() {
         this.x = Math.random() * SCREENWIDTH;
         this.y = 0;
@@ -22,13 +20,10 @@ class Node {
         this.mark = false;
     }
 
-
     draw(ctx) {
         ctx.beginPath();
         ctx.arc(this.x, this.y, RADIUS, 0, Math.PI * 2);
-        const x = this.value;
-
-        ctx.fillStyle = `hsl(${x}, 100%, 50%)`;
+        ctx.fillStyle = `hsl(${this.value}, 100%, 50%)`;
         ctx.lineWidth = 3;
         ctx.strokeStyle = "white";
         ctx.fill();
@@ -37,12 +32,11 @@ class Node {
         ctx.textAlign = "center";
         ctx.font = "bold 22px sanserif";
         ctx.fillStyle = "black";
-        ctx.fillText(x, this.x, this.y + 8);
+        ctx.fillText(this.value, this.x, this.y + 8);
     }
 }
 
-
-let nodes = new Set();
+const nodes = new Set();
 
 for (let i = 0; i < 3; i++)
     nodes.add(new Node());
@@ -63,8 +57,6 @@ function line(ctx, x1, y1, x2, y2) {
 }
 
 
-
-
 /**
  * 
  * @param {*} ctx
@@ -74,7 +66,6 @@ function draw(ctx) {
     ctx.clearRect(0, 0, 6040, 4080);
 
     if (!mousePressed) {
-
         for (const node of nodes)
             node.f = { x: 0, y: 0 };
 
@@ -82,12 +73,11 @@ function draw(ctx) {
         const Fattraction = F * 3;
 
         function addForce(node, node2, F) {
-            const d2 = (node.x - node2.x) ** 2 + (node.y - node2.y) ** 2;
+            const d2 = dist2(node, node2);
             const angle = Math.atan2(node.y - node2.y, node.x - node2.x);
             if (d2 > 0.01) {
                 node.f.x += F * Math.cos(angle) / d2;
                 node.f.y += F * Math.sin(angle) / d2;
-
             }
         }
         for (const node of nodes)
@@ -96,15 +86,11 @@ function draw(ctx) {
                 addForce(node2, node, -Fattraction);
             }
 
-        function isEdge(node, node2) {
-            return node.parent == node2 || node2.parent == node;
-        }
+        function isEdge(node, node2) { return node.parent == node2 || node2.parent == node; }
         for (const node of nodes)
             for (const node2 of nodes)
                 if (node != node2 && !isEdge(node, node2))
                     addForce(node, node2, F);
-
-
 
         const RALENTISSEMENT = 0.9;
         for (const node of nodes) {
@@ -129,8 +115,6 @@ function draw(ctx) {
 
     }
 
-
-
     if (parentCandidate && currentNode && mousePressed) {
         ctx.strokeStyle = "white";
         ctx.lineWidth = 1;
@@ -148,9 +132,6 @@ function draw(ctx) {
 }
 
 
-draw(canvas.getContext("2d")); //first drawing
-
-
 function loop() {
     draw(canvas.getContext("2d")); //first drawing
     requestAnimationFrame(loop);
@@ -163,45 +144,42 @@ loop();
  */
 
 
-canvas.oncontextmenu = (evt) => {
-    evt.preventDefault();
-}
+canvas.oncontextmenu = (evt) => { evt.preventDefault(); }
 
 canvas.onmousedown = (evt) => {
     mousePressed = true;
-
+    if (mouse.y < 2 * RADIUS && currentNode == undefined)
+        nodes.add(new Node());
     if (evt.button > 0) {
         if (currentNode)
             currentNode.mark = !currentNode.mark;
     }
-
     evt.preventDefault();
-    computeParentCandidate();
+
+    if (currentNode)
+        computeParentCandidate();
 }
 
-function dist2(a, b) {
-    return (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+
+canvas.ondblclick = (evt) => {
+    if(currentNode)
+        currentNode.value = parseInt(prompt("Enter the value of the node: "));
 }
-
-
-
+function dist2(a, b) { return (a.x - b.x) ** 2 + (a.y - b.y) ** 2; }
 
 document.body.onkeydown = (evt) => {
-    if(evt.key == "Enter")
+    if (evt.key == "Enter")
         nodes.add(new Node());
 }
+
 canvas.onmouseup = () => {
-
     if (currentNode) {
-
         if (parentCandidate) {
             if (currentNode.parent != undefined) {
                 currentNode.parent.children.delete(currentNode);
             }
             parentCandidate.children.add(currentNode);
             currentNode.parent = parentCandidate;
-
-
         }
         else {
             if (currentNode.parent != undefined) {
@@ -219,10 +197,8 @@ canvas.onmouseup = () => {
         computeDepths();
 
     }
-
     mousePressed = false;
 }
-
 
 
 function computeDepths() {
@@ -231,9 +207,8 @@ function computeDepths() {
         for (const c of n.children)
             setDepth(c, d + 1);
     }
-    for (const n of nodes) if (n.parent == undefined) {
+    for (const n of nodes) if (n.parent == undefined)
         setDepth(n, 0);
-    }
 }
 
 canvas.onmousemove = (evt) => {
@@ -247,19 +222,17 @@ canvas.onmousemove = (evt) => {
     if (!mousePressed) {
         currentNode = undefined;
         for (const node of nodes)
-            if ((mouse.x - node.x) ** 2 + (mouse.y - node.y) ** 2 < RADIUS ** 2)
+            if (dist2(mouse, node) < RADIUS ** 2)
                 currentNode = node;
     }
 
-
     function move(n, delta) {
-
         n.x += delta.x;
         n.y += delta.y;
-
         for (const c of n.children)
             move(c, delta);
     }
+
     if (mousePressed && currentNode) {
         move(currentNode, delta);
         computeParentCandidate();
