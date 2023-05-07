@@ -99,7 +99,7 @@ function draw(ctx) {
 
         for (const node of nodes)
             for (const node2 of nodes)
-                if (node != node2 && !isEdge(node, node2))
+                if (node != node2 && node.depth == node2.depth)
                     addForce(node, node2, F);
 
         const SLOWDOWN = 0.9;
@@ -284,7 +284,7 @@ function computeParentCandidate() {
         return;
 
     const candidates = Array.from(nodes).filter((n) => (n != currentNode))
-        .filter((n) => dist2(n, currentNode) > 50)
+        .filter((n) => dist2(n, currentNode) < 200 ** 2)
         .filter((n) => (n.y < currentNode.y - 2 * RADIUS))
         .sort((a, b) => dist2(a, currentNode) - dist2(b, currentNode));
     if (candidates.length > 0)
