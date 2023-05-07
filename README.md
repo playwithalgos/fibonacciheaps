@@ -1,6 +1,6 @@
-# Heap sandbox
+# Play with Fibonacci heaps
 
-Please find a sandbox/playground to play with heaps, a data structure for implementing a priority queue. The tool may illustrate a binary heap, a binomial heap or a Fibonacci heap. 
+Please find a sandbox/playground to play with Fibonacci heaps, a data structure for implementing a priority queue. As it makes the most, the tool may also illustrate a binary heap, a binomial heap. 
 
 ## Features
 - Move nodes and connect nodes
