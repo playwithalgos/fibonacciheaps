@@ -5,15 +5,16 @@ const SCREENHEIGHT = 800;
 let mousePressed = false;
 let currentNode = undefined;
 let parentCandidate = undefined;
+let MAXVALUE = 240;
 let mouse = { x: 0, y: 0 };
 
 class Node {
-    constructor() {
-        this.x = Math.random() * SCREENWIDTH;
+    constructor(arg) {
+        this.x = arg ? arg.x : Math.random() * SCREENWIDTH;
         this.y = 0;
         this.v = { x: 0, y: 0 };
         this.f = { x: 0, y: 0 };
-        this.value = Math.floor(Math.random() * 240);
+        this.value = Math.floor(Math.random() * MAXVALUE);
         this.parent = undefined;
         this.children = new Set();
         this.depth = 0;
@@ -22,13 +23,21 @@ class Node {
 
     draw(ctx) {
         ctx.beginPath();
-        ctx.arc(this.x, this.y, RADIUS, 0, Math.PI * 2);
+        ctx.globalAlpha = (this.y < 2 * RADIUS) ? 0.5 : 1;
         ctx.fillStyle = `hsl(${this.value}, 100%, 50%)`;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 10;
         ctx.strokeStyle = "white";
-        ctx.fill();
+
+        if (this.mark || this.parent == undefined)
+            ctx.arc(this.x, this.y, RADIUS, 0, Math.PI * 2);
+        else
+            ctx.rect(this.x - RADIUS, this.y - RADIUS, 2 * RADIUS, 2 * RADIUS);
+
         if (this.mark)
             ctx.stroke();
+
+        ctx.fill();
+        ctx.globalAlpha = 1;
         ctx.textAlign = "center";
         ctx.font = "bold 22px sanserif";
         ctx.fillStyle = "black";
@@ -37,6 +46,8 @@ class Node {
 }
 
 const nodes = new Set();
+function isEdge(node, node2) { return node.parent == node2 || node2.parent == node; }
+
 
 for (let i = 0; i < 3; i++)
     nodes.add(new Node());
@@ -86,13 +97,12 @@ function draw(ctx) {
                 addForce(node2, node, -Fattraction);
             }
 
-        function isEdge(node, node2) { return node.parent == node2 || node2.parent == node; }
         for (const node of nodes)
             for (const node2 of nodes)
                 if (node != node2 && !isEdge(node, node2))
                     addForce(node, node2, F);
 
-        const RALENTISSEMENT = 0.9;
+        const SLOWDOWN = 0.9;
         for (const node of nodes) {
             node.v.x += node.f.x;
             node.v.y += node.f.y;
@@ -107,10 +117,10 @@ function draw(ctx) {
                 return a * lambda + b * (1 - lambda);
             }
             node.y = barycentre(node.y, 200 + node.depth * 100);
-            node.x = Math.min(SCREENWIDTH, Math.max(RADIUS, node.x));
-            node.y = Math.min(SCREENHEIGHT, Math.max(RADIUS, node.y));
-            node.v.x *= RALENTISSEMENT;
-            node.v.y *= RALENTISSEMENT;
+            node.x = Math.min(SCREENWIDTH, Math.max(2 * RADIUS, node.x));
+            node.y = Math.max(RADIUS, node.y);
+            node.v.x *= SLOWDOWN;
+            node.v.y *= SLOWDOWN;
         }
 
     }
@@ -149,21 +159,29 @@ canvas.oncontextmenu = (evt) => { evt.preventDefault(); }
 canvas.onmousedown = (evt) => {
     mousePressed = true;
     if (mouse.y < 2 * RADIUS && currentNode == undefined)
-        nodes.add(new Node());
-    if (evt.button > 0) {
+        nodes.add(new Node({x:mouse.x}));
+    if (evt.button > 0) {   
         if (currentNode)
             currentNode.mark = !currentNode.mark;
     }
     evt.preventDefault();
 
-    if (currentNode)
+    if (currentNode) {
         computeParentCandidate();
+        currentNode.initialX = currentNode.x;
+        currentNode.initialY = currentNode.y;
+
+    }
 }
 
 
 canvas.ondblclick = (evt) => {
-    if(currentNode)
-        currentNode.value = parseInt(prompt("Enter the value of the node: "));
+    if (currentNode) {
+        const a = parseInt(prompt("Enter the value of the node: ", currentNode.value));
+        if (0 <= a && a < MAXVALUE)
+            currentNode.value = a;
+    }
+
 }
 function dist2(a, b) { return (a.x - b.x) ** 2 + (a.y - b.y) ** 2; }
 
@@ -174,28 +192,39 @@ document.body.onkeydown = (evt) => {
 
 canvas.onmouseup = () => {
     if (currentNode) {
-        if (parentCandidate) {
-            if (currentNode.parent != undefined) {
-                currentNode.parent.children.delete(currentNode);
-            }
-            parentCandidate.children.add(currentNode);
-            currentNode.parent = parentCandidate;
+        const other = getNodeUnderCurrentNode();
+        if (other) {
+            [other.value, currentNode.value] = [currentNode.value, other.value];
+            currentNode.x = currentNode.initialX;
+            currentNode.y = currentNode.initialY;
+
         }
         else {
-            if (currentNode.parent != undefined) {
-                currentNode.parent.children.delete(currentNode);
-            }
-            currentNode.parent = undefined;
 
-            if (currentNode.y < 2 * RADIUS) {
-                nodes.delete(currentNode);
-                for (const c of currentNode.children)
-                    c.parent = undefined;
+            if (parentCandidate) {
+                if (currentNode.parent != undefined) {
+                    currentNode.parent.children.delete(currentNode);
+                }
+                parentCandidate.children.add(currentNode);
+                currentNode.parent = parentCandidate;
             }
+            else {
+                if (currentNode.parent != undefined) {
+                    currentNode.parent.children.delete(currentNode);
+                }
+                currentNode.parent = undefined;
+
+                if (currentNode.y < 2 * RADIUS) {
+                    nodes.delete(currentNode);
+                    for (const c of currentNode.children)
+                        c.parent = undefined;
+                }
+            }
+            parentCandidate = undefined;
+
+
         }
-        parentCandidate = undefined;
         computeDepths();
-
     }
     mousePressed = false;
 }
@@ -239,9 +268,21 @@ canvas.onmousemove = (evt) => {
     }
 }
 
+function getNodeUnderCurrentNode() {
+    const A = Array.from(nodes).filter((n) => (n != currentNode))
+        .filter((n) => (dist2(n, currentNode) <= RADIUS ** 2))
 
+    if (A.length == 0)
+        return undefined;
+    else
+        return A[0];
+}
 function computeParentCandidate() {
+
     parentCandidate = undefined;
+    if (getNodeUnderCurrentNode())
+        return;
+
     const candidates = Array.from(nodes).filter((n) => (n != currentNode))
         .filter((n) => dist2(n, currentNode) > 50)
         .filter((n) => (n.y < currentNode.y - 2 * RADIUS))
